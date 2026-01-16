@@ -26,12 +26,12 @@ Public Enum eColor
 End Enum
 
 Private Type tCanvas
-    ws As Worksheet
+    wsName As String
     topRow As Long
     leftCol As Long
     widthPx As Long
     heightPx As Long
-    scale As Long
+    pixelScale As Long
 End Type
 
 Private gPalette(1 To 5) As Long
@@ -74,16 +74,56 @@ Public Sub Demo_Grafico()
     
     InitPalette
     
+    ' --- Configurações visuais ---
     Dim r As Long: r = CLng(Val(InputBox("Resolução: 1=baixa, 2=média, 3=alta", "Resolução", "2")))
     If r < 1 Or r > 3 Then r = 2
     
-    Dim c As Long: c = CLng(Val(InputBox("Cor: 1=preto, 2=vermelho, 3=verde, 4=azul, 5=cinza", "Cor", "4")))
-    If c < 1 Or c > 5 Then c = 4
-    
-    Dim thickness As Long: thickness = CLng(Val(InputBox("Espessura (pixels): ex 1..4", "Espessura", "2")))
+    Dim thickness As Long: thickness = CLng(Val(InputBox("Espessura da linha (pixels): 1..4", "Espessura", "2")))
     If thickness < 1 Then thickness = 1
     
-    ' Canvas
+    ' --- Função Linear: y = m*x + b ---
+    Dim drawLinear As Long
+    drawLinear = MsgBox("Desenhar função LINEAR (y = m*x + b)?", vbYesNo + vbQuestion, "Função Linear")
+    
+    Dim m As Double, b As Double, cLinear As Long
+    If drawLinear = vbYes Then
+        m = Val(InputBox("Coeficiente angular (m):" & vbCrLf & vbCrLf & _
+                         "Positivo = sobe para direita" & vbCrLf & _
+                         "Negativo = desce para direita" & vbCrLf & _
+                         "Zero = linha horizontal", "Linear: m", "0.7"))
+        b = Val(InputBox("Coeficiente linear (b):" & vbCrLf & vbCrLf & _
+                         "Positivo = cruza eixo Y acima da origem" & vbCrLf & _
+                         "Negativo = cruza eixo Y abaixo da origem", "Linear: b", "1.5"))
+        cLinear = CLng(Val(InputBox("Cor da reta: 1=preto, 2=vermelho, 3=verde, 4=azul, 5=cinza", "Cor Linear", "4")))
+        If cLinear < 1 Or cLinear > 5 Then cLinear = 4
+    End If
+    
+    ' --- Função Quadrática: y = a*x² + b*x + c ---
+    Dim drawQuad As Long
+    drawQuad = MsgBox("Desenhar função QUADRÁTICA (y = a*x² + b*x + c)?", vbYesNo + vbQuestion, "Função Quadrática")
+    
+    Dim a As Double, b2 As Double, c2 As Double, cQuad As Long
+    If drawQuad = vbYes Then
+        a = Val(InputBox("Coeficiente 'a' (curvatura):" & vbCrLf & vbCrLf & _
+                         "Positivo = parábola abre para CIMA (U)" & vbCrLf & _
+                         "Negativo = parábola abre para BAIXO (∩)" & vbCrLf & _
+                         "Maior |a| = mais fechada", "Quadrática: a", "0.12"))
+        b2 = Val(InputBox("Coeficiente 'b' (deslocamento horizontal):" & vbCrLf & vbCrLf & _
+                          "Afeta posição do vértice", "Quadrática: b", "0"))
+        c2 = Val(InputBox("Coeficiente 'c' (deslocamento vertical):" & vbCrLf & vbCrLf & _
+                          "Positivo = vértice sobe" & vbCrLf & _
+                          "Negativo = vértice desce", "Quadrática: c", "-2"))
+        cQuad = CLng(Val(InputBox("Cor da parábola: 1=preto, 2=vermelho, 3=verde, 4=azul, 5=cinza", "Cor Quadrática", "2")))
+        If cQuad < 1 Or cQuad > 5 Then cQuad = 2
+    End If
+    
+    ' Se não escolheu nenhuma função, sair
+    If drawLinear <> vbYes And drawQuad <> vbYes Then
+        MsgBox "Nenhuma função selecionada!", vbExclamation
+        Exit Sub
+    End If
+    
+    ' --- Canvas ---
     Dim canvas As tCanvas
     CreateCanvas canvas, ws, topRow:=70, leftCol:=2, widthPx:=220, heightPx:=120, res:=r
     
@@ -91,26 +131,35 @@ Public Sub Demo_Grafico()
     SetupCanvas canvas, cellPointSize:=7 + (r * 2), zoomBase:=120
     ClearCanvas canvas, bgColor:=RGB(255, 255, 255)
     
-    ' Sistema cartesiano no canvas:
-    ' Mapeamento: (xMin..xMax) -> 0..widthPx-1; (yMin..yMax) -> 0..heightPx-1
+    ' Sistema cartesiano: (xMin..xMax) -> 0..widthPx-1; (yMin..yMax) -> 0..heightPx-1
     Dim xMin As Double, xMax As Double, yMin As Double, yMax As Double
     xMin = -10: xMax = 10
     yMin = -10: yMax = 10
     
     ' Eixos
-    DrawAxes canvas, xMin, xMax, yMin, yMax, axisColorId:=colGray
+    DrawAxes canvas, xMin, xMax, yMin, yMax, axisColorId:=5  ' gray
     
-    ' Reta: y = m x + b
-    Dim m As Double, b As Double
-    m = 0.7: b = 1.5
-    PlotLinear canvas, m, b, xMin, xMax, yMin, yMax, colorId:=c, thickness:=thickness
+    ' Plotar funções escolhidas
+    If drawLinear = vbYes Then
+        PlotLinear canvas, m, b, xMin, xMax, yMin, yMax, colorId:=cLinear, thickness:=thickness
+    End If
     
-    ' Quadrática: y = a x^2 + b2 x + c2
-    Dim a As Double, b2 As Double, c2 As Double
-    a = 0.12: b2 = 0: c2 = -2
-    PlotQuadratic canvas, a, b2, c2, xMin, xMax, yMin, yMax, colorId:=colRed, thickness:=thickness
+    If drawQuad = vbYes Then
+        PlotQuadratic canvas, a, b2, c2, xMin, xMax, yMin, yMax, colorId:=cQuad, thickness:=thickness
+    End If
     
     Application.ScreenUpdating = True
+    
+    ' Mostrar resumo
+    Dim msg As String
+    msg = "Gráfico plotado!" & vbCrLf & vbCrLf
+    If drawLinear = vbYes Then
+        msg = msg & "LINEAR: y = " & m & "*x + " & b & vbCrLf
+    End If
+    If drawQuad = vbYes Then
+        msg = msg & "QUADRÁTICA: y = " & a & "*x² + " & b2 & "*x + " & c2
+    End If
+    MsgBox msg, vbInformation, "Resultado"
 End Sub
 
 '===========================================================
@@ -119,12 +168,12 @@ End Sub
 
 Private Sub CreateCanvas(ByRef canvas As tCanvas, ByVal ws As Worksheet, ByVal topRow As Long, ByVal leftCol As Long, _
                          ByVal widthPx As Long, ByVal heightPx As Long, ByVal res As Long)
-    Set canvas.ws = ws  ' CORREÇÃO: usar Set para objetos
+    canvas.wsName = ws.Name
     canvas.topRow = topRow
     canvas.leftCol = leftCol
     canvas.widthPx = widthPx
     canvas.heightPx = heightPx
-    canvas.scale = ScaleFromResolution(res)
+    canvas.pixelScale = ScaleFromResolution(res)
 End Sub
 
 Private Function ScaleFromResolution(ByVal res As Long) As Long
@@ -136,12 +185,16 @@ Private Function ScaleFromResolution(ByVal res As Long) As Long
     End Select
 End Function
 
+Private Function GetWorksheet(ByRef canvas As tCanvas) As Worksheet
+    Set GetWorksheet = ActiveWorkbook.Worksheets(canvas.wsName)
+End Function
+
 Private Sub SetupCanvas(ByRef canvas As tCanvas, ByVal cellPointSize As Double, ByVal zoomBase As Long)
     ' Ajusta células aproximadamente quadradas na região do canvas.
     ' Observação: "ColumnWidth" não é em pontos; é uma unidade própria do Excel.
     ' Este fator funciona bem na prática, mas pode variar por fonte/DPI.
     
-    Dim ws As Worksheet: Set ws = canvas.ws
+    Dim ws As Worksheet: Set ws = GetWorksheet(canvas)
     
     Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long
     r1 = canvas.topRow
@@ -157,10 +210,10 @@ Private Sub SetupCanvas(ByRef canvas As tCanvas, ByVal cellPointSize As Double, 
         Dim colW As Double
         colW = cellPointSize * 0.14
         
-        .Columns(c1 & ":" & c2).ColumnWidth = colW
+        .Range(.Cells(1, c1), .Cells(1, c2)).EntireColumn.ColumnWidth = colW
         
         ' Zoom coerente com escala (resolução maior -> mais zoom)
-        ActiveWindow.Zoom = zoomBase + (canvas.scale - 1) * 25
+        ActiveWindow.Zoom = zoomBase + (canvas.pixelScale - 1) * 25
         
         ' Remover gridlines ajuda a visualização do bitmap
         ActiveWindow.DisplayGridlines = False
@@ -168,7 +221,7 @@ Private Sub SetupCanvas(ByRef canvas As tCanvas, ByVal cellPointSize As Double, 
 End Sub
 
 Private Sub ClearCanvas(ByRef canvas As tCanvas, ByVal bgColor As Long)
-    Dim ws As Worksheet: Set ws = canvas.ws
+    Dim ws As Worksheet: Set ws = GetWorksheet(canvas)
     Dim rng As Range
     Set rng = ws.Range(ws.Cells(canvas.topRow, canvas.leftCol), _
                        ws.Cells(canvas.topRow + canvas.heightPx - 1, canvas.leftCol + canvas.widthPx - 1))
@@ -179,14 +232,14 @@ Private Sub SetPixel(ByRef canvas As tCanvas, ByVal x As Long, ByVal y As Long, 
     If x < 0 Or x >= canvas.widthPx Then Exit Sub
     If y < 0 Or y >= canvas.heightPx Then Exit Sub
     
-    canvas.ws.Cells(canvas.topRow + y, canvas.leftCol + x).Interior.Color = colorValue
+    GetWorksheet(canvas).Cells(canvas.topRow + y, canvas.leftCol + x).Interior.Color = colorValue
 End Sub
 
 Private Sub SetPixelBlock(ByRef canvas As tCanvas, ByVal x As Long, ByVal y As Long, ByVal colorValue As Long)
-    ' Desenha um "pixel" escalado (resolução) como um bloco scale x scale
+    ' Desenha um "pixel" escalado (resolução) como um bloco pixelScale x pixelScale
     Dim dx As Long, dy As Long
-    For dy = 0 To canvas.scale - 1
-        For dx = 0 To canvas.scale - 1
+    For dy = 0 To canvas.pixelScale - 1
+        For dx = 0 To canvas.pixelScale - 1
             SetPixel canvas, x + dx, y + dy, colorValue
         Next dx
     Next dy
@@ -196,15 +249,15 @@ End Sub
 '  Paleta simples (5 cores)
 '===========================================================
 Private Sub InitPalette()
-    gPalette(colBlack) = RGB(0, 0, 0)
-    gPalette(colRed) = RGB(220, 40, 40)
-    gPalette(colGreen) = RGB(35, 150, 70)
-    gPalette(colBlue) = RGB(40, 90, 210)
-    gPalette(colGray) = RGB(120, 120, 120)
+    gPalette(1) = RGB(0, 0, 0)       ' colBlack
+    gPalette(2) = RGB(220, 40, 40)   ' colRed
+    gPalette(3) = RGB(35, 150, 70)   ' colGreen
+    gPalette(4) = RGB(40, 90, 210)   ' colBlue
+    gPalette(5) = RGB(120, 120, 120) ' colGray
 End Sub
 
 Private Function ColorById(ByVal colorId As Long) As Long
-    If colorId < 1 Or colorId > 5 Then colorId = colBlack
+    If colorId < 1 Or colorId > 5 Then colorId = 1  ' default to black
     ColorById = gPalette(colorId)
 End Function
 
@@ -215,319 +268,319 @@ End Function
 Private Function Glyph5x7(ByVal ch As String) As Variant
     ' Retorna um array de 7 strings, cada uma com 5 chars ("0"/"1").
     ' Pode ser estendido facilmente.
-    Dim rows(1 To 7) As String
+    Dim glyphData(1 To 7) As String
     
     ch = UCase$(Left$(ch, 1))
     
     Select Case ch
         Case "A"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "11111"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "10001"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "11111"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "10001"
         Case "B"
-            rows(1) = "11110"
-            rows(2) = "10001"
-            rows(3) = "11110"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "11110"
+            glyphData(1) = "11110"
+            glyphData(2) = "10001"
+            glyphData(3) = "11110"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "11110"
         Case "C"
-            rows(1) = "01111"
-            rows(2) = "10000"
-            rows(3) = "10000"
-            rows(4) = "10000"
-            rows(5) = "10000"
-            rows(6) = "10000"
-            rows(7) = "01111"
+            glyphData(1) = "01111"
+            glyphData(2) = "10000"
+            glyphData(3) = "10000"
+            glyphData(4) = "10000"
+            glyphData(5) = "10000"
+            glyphData(6) = "10000"
+            glyphData(7) = "01111"
         Case "D"
-            rows(1) = "11110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "11110"
+            glyphData(1) = "11110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "11110"
         Case "E"
-            rows(1) = "11111"
-            rows(2) = "10000"
-            rows(3) = "11110"
-            rows(4) = "10000"
-            rows(5) = "10000"
-            rows(6) = "10000"
-            rows(7) = "11111"
+            glyphData(1) = "11111"
+            glyphData(2) = "10000"
+            glyphData(3) = "11110"
+            glyphData(4) = "10000"
+            glyphData(5) = "10000"
+            glyphData(6) = "10000"
+            glyphData(7) = "11111"
         Case "F"
-            rows(1) = "11111"
-            rows(2) = "10000"
-            rows(3) = "11110"
-            rows(4) = "10000"
-            rows(5) = "10000"
-            rows(6) = "10000"
-            rows(7) = "10000"
+            glyphData(1) = "11111"
+            glyphData(2) = "10000"
+            glyphData(3) = "11110"
+            glyphData(4) = "10000"
+            glyphData(5) = "10000"
+            glyphData(6) = "10000"
+            glyphData(7) = "10000"
         Case "G"
-            rows(1) = "01110"
-            rows(2) = "10000"
-            rows(3) = "10000"
-            rows(4) = "10111"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10000"
+            glyphData(3) = "10000"
+            glyphData(4) = "10111"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "H"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "11111"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "11111"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "10001"
         Case "I"
-            rows(1) = "01110"
-            rows(2) = "00100"
-            rows(3) = "00100"
-            rows(4) = "00100"
-            rows(5) = "00100"
-            rows(6) = "00100"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "00100"
+            glyphData(3) = "00100"
+            glyphData(4) = "00100"
+            glyphData(5) = "00100"
+            glyphData(6) = "00100"
+            glyphData(7) = "01110"
         Case "J"
-            rows(1) = "00111"
-            rows(2) = "00010"
-            rows(3) = "00010"
-            rows(4) = "00010"
-            rows(5) = "10010"
-            rows(6) = "10010"
-            rows(7) = "01100"
+            glyphData(1) = "00111"
+            glyphData(2) = "00010"
+            glyphData(3) = "00010"
+            glyphData(4) = "00010"
+            glyphData(5) = "10010"
+            glyphData(6) = "10010"
+            glyphData(7) = "01100"
         Case "K"
-            rows(1) = "10001"
-            rows(2) = "10010"
-            rows(3) = "10100"
-            rows(4) = "11000"
-            rows(5) = "10100"
-            rows(6) = "10010"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "10010"
+            glyphData(3) = "10100"
+            glyphData(4) = "11000"
+            glyphData(5) = "10100"
+            glyphData(6) = "10010"
+            glyphData(7) = "10001"
         Case "L"
-            rows(1) = "10000"
-            rows(2) = "10000"
-            rows(3) = "10000"
-            rows(4) = "10000"
-            rows(5) = "10000"
-            rows(6) = "10000"
-            rows(7) = "11111"
+            glyphData(1) = "10000"
+            glyphData(2) = "10000"
+            glyphData(3) = "10000"
+            glyphData(4) = "10000"
+            glyphData(5) = "10000"
+            glyphData(6) = "10000"
+            glyphData(7) = "11111"
         Case "M"
-            rows(1) = "10001"
-            rows(2) = "11011"
-            rows(3) = "10101"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "11011"
+            glyphData(3) = "10101"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "10001"
         Case "N"
-            rows(1) = "10001"
-            rows(2) = "11001"
-            rows(3) = "10101"
-            rows(4) = "10011"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "11001"
+            glyphData(3) = "10101"
+            glyphData(4) = "10011"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "10001"
         Case "O"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "P"
-            rows(1) = "11110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "11110"
-            rows(5) = "10000"
-            rows(6) = "10000"
-            rows(7) = "10000"
+            glyphData(1) = "11110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "11110"
+            glyphData(5) = "10000"
+            glyphData(6) = "10000"
+            glyphData(7) = "10000"
         Case "Q"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10001"
-            rows(5) = "10101"
-            rows(6) = "10010"
-            rows(7) = "01101"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10001"
+            glyphData(5) = "10101"
+            glyphData(6) = "10010"
+            glyphData(7) = "01101"
         Case "R"
-            rows(1) = "11110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "11110"
-            rows(5) = "10100"
-            rows(6) = "10010"
-            rows(7) = "10001"
+            glyphData(1) = "11110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "11110"
+            glyphData(5) = "10100"
+            glyphData(6) = "10010"
+            glyphData(7) = "10001"
         Case "S"
-            rows(1) = "01111"
-            rows(2) = "10000"
-            rows(3) = "10000"
-            rows(4) = "01110"
-            rows(5) = "00001"
-            rows(6) = "00001"
-            rows(7) = "11110"
+            glyphData(1) = "01111"
+            glyphData(2) = "10000"
+            glyphData(3) = "10000"
+            glyphData(4) = "01110"
+            glyphData(5) = "00001"
+            glyphData(6) = "00001"
+            glyphData(7) = "11110"
         Case "T"
-            rows(1) = "11111"
-            rows(2) = "00100"
-            rows(3) = "00100"
-            rows(4) = "00100"
-            rows(5) = "00100"
-            rows(6) = "00100"
-            rows(7) = "00100"
+            glyphData(1) = "11111"
+            glyphData(2) = "00100"
+            glyphData(3) = "00100"
+            glyphData(4) = "00100"
+            glyphData(5) = "00100"
+            glyphData(6) = "00100"
+            glyphData(7) = "00100"
         Case "U"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "V"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10001"
-            rows(5) = "10001"
-            rows(6) = "01010"
-            rows(7) = "00100"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10001"
+            glyphData(5) = "10001"
+            glyphData(6) = "01010"
+            glyphData(7) = "00100"
         Case "W"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "10101"
-            rows(5) = "10101"
-            rows(6) = "11011"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "10101"
+            glyphData(5) = "10101"
+            glyphData(6) = "11011"
+            glyphData(7) = "10001"
         Case "X"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "01010"
-            rows(4) = "00100"
-            rows(5) = "01010"
-            rows(6) = "10001"
-            rows(7) = "10001"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "01010"
+            glyphData(4) = "00100"
+            glyphData(5) = "01010"
+            glyphData(6) = "10001"
+            glyphData(7) = "10001"
         Case "Y"
-            rows(1) = "10001"
-            rows(2) = "10001"
-            rows(3) = "01010"
-            rows(4) = "00100"
-            rows(5) = "00100"
-            rows(6) = "00100"
-            rows(7) = "00100"
+            glyphData(1) = "10001"
+            glyphData(2) = "10001"
+            glyphData(3) = "01010"
+            glyphData(4) = "00100"
+            glyphData(5) = "00100"
+            glyphData(6) = "00100"
+            glyphData(7) = "00100"
         Case "Z"
-            rows(1) = "11111"
-            rows(2) = "00001"
-            rows(3) = "00010"
-            rows(4) = "00100"
-            rows(5) = "01000"
-            rows(6) = "10000"
-            rows(7) = "11111"
+            glyphData(1) = "11111"
+            glyphData(2) = "00001"
+            glyphData(3) = "00010"
+            glyphData(4) = "00100"
+            glyphData(5) = "01000"
+            glyphData(6) = "10000"
+            glyphData(7) = "11111"
         Case "0"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10011"
-            rows(4) = "10101"
-            rows(5) = "11001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10011"
+            glyphData(4) = "10101"
+            glyphData(5) = "11001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "1"
-            rows(1) = "00100"
-            rows(2) = "01100"
-            rows(3) = "00100"
-            rows(4) = "00100"
-            rows(5) = "00100"
-            rows(6) = "00100"
-            rows(7) = "01110"
+            glyphData(1) = "00100"
+            glyphData(2) = "01100"
+            glyphData(3) = "00100"
+            glyphData(4) = "00100"
+            glyphData(5) = "00100"
+            glyphData(6) = "00100"
+            glyphData(7) = "01110"
         Case "2"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "00001"
-            rows(4) = "00110"
-            rows(5) = "01000"
-            rows(6) = "10000"
-            rows(7) = "11111"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "00001"
+            glyphData(4) = "00110"
+            glyphData(5) = "01000"
+            glyphData(6) = "10000"
+            glyphData(7) = "11111"
         Case "3"
-            rows(1) = "11110"
-            rows(2) = "00001"
-            rows(3) = "00110"
-            rows(4) = "00001"
-            rows(5) = "00001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "11110"
+            glyphData(2) = "00001"
+            glyphData(3) = "00110"
+            glyphData(4) = "00001"
+            glyphData(5) = "00001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "4"
-            rows(1) = "00010"
-            rows(2) = "00110"
-            rows(3) = "01010"
-            rows(4) = "10010"
-            rows(5) = "11111"
-            rows(6) = "00010"
-            rows(7) = "00010"
+            glyphData(1) = "00010"
+            glyphData(2) = "00110"
+            glyphData(3) = "01010"
+            glyphData(4) = "10010"
+            glyphData(5) = "11111"
+            glyphData(6) = "00010"
+            glyphData(7) = "00010"
         Case "5"
-            rows(1) = "11111"
-            rows(2) = "10000"
-            rows(3) = "11110"
-            rows(4) = "00001"
-            rows(5) = "00001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "11111"
+            glyphData(2) = "10000"
+            glyphData(3) = "11110"
+            glyphData(4) = "00001"
+            glyphData(5) = "00001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "6"
-            rows(1) = "01110"
-            rows(2) = "10000"
-            rows(3) = "10000"
-            rows(4) = "11110"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10000"
+            glyphData(3) = "10000"
+            glyphData(4) = "11110"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "7"
-            rows(1) = "11111"
-            rows(2) = "00001"
-            rows(3) = "00010"
-            rows(4) = "00100"
-            rows(5) = "01000"
-            rows(6) = "01000"
-            rows(7) = "01000"
+            glyphData(1) = "11111"
+            glyphData(2) = "00001"
+            glyphData(3) = "00010"
+            glyphData(4) = "00100"
+            glyphData(5) = "01000"
+            glyphData(6) = "01000"
+            glyphData(7) = "01000"
         Case "8"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "01110"
-            rows(5) = "10001"
-            rows(6) = "10001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "01110"
+            glyphData(5) = "10001"
+            glyphData(6) = "10001"
+            glyphData(7) = "01110"
         Case "9"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "10001"
-            rows(4) = "01111"
-            rows(5) = "00001"
-            rows(6) = "00001"
-            rows(7) = "01110"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "10001"
+            glyphData(4) = "01111"
+            glyphData(5) = "00001"
+            glyphData(6) = "00001"
+            glyphData(7) = "01110"
         Case " "
-            rows(1) = "00000"
-            rows(2) = "00000"
-            rows(3) = "00000"
-            rows(4) = "00000"
-            rows(5) = "00000"
-            rows(6) = "00000"
-            rows(7) = "00000"
+            glyphData(1) = "00000"
+            glyphData(2) = "00000"
+            glyphData(3) = "00000"
+            glyphData(4) = "00000"
+            glyphData(5) = "00000"
+            glyphData(6) = "00000"
+            glyphData(7) = "00000"
         Case Else
             ' Caractere desconhecido: desenha um "?"
-            rows(1) = "01110"
-            rows(2) = "10001"
-            rows(3) = "00010"
-            rows(4) = "00100"
-            rows(5) = "00100"
-            rows(6) = "00000"
-            rows(7) = "00100"
+            glyphData(1) = "01110"
+            glyphData(2) = "10001"
+            glyphData(3) = "00010"
+            glyphData(4) = "00100"
+            glyphData(5) = "00100"
+            glyphData(6) = "00000"
+            glyphData(7) = "00100"
     End Select
     
-    Glyph5x7 = rows
+    Glyph5x7 = glyphData
 End Function
 
 Private Sub DrawGlyph(ByRef canvas As tCanvas, ByVal ch As String, ByVal x0 As Long, ByVal y0 As Long, ByVal colorId As Long)
@@ -544,8 +597,8 @@ Private Sub DrawGlyph(ByRef canvas As tCanvas, ByVal ch As String, ByVal x0 As L
         line = glyph(rowIdx)
         For colIdx = 1 To 5
             If Mid$(line, colIdx, 1) = "1" Then
-                ' aplica escala: cada "bit" vira um bloco scale x scale
-                SetPixelBlock canvas, x0 + (colIdx - 1) * canvas.scale, y0 + (rowIdx - 1) * canvas.scale, colorValue
+                ' aplica escala: cada "bit" vira um bloco pixelScale x pixelScale
+                SetPixelBlock canvas, x0 + (colIdx - 1) * canvas.pixelScale, y0 + (rowIdx - 1) * canvas.pixelScale, colorValue
             End If
         Next colIdx
     Next rowIdx
@@ -557,7 +610,7 @@ Private Sub DrawText(ByRef canvas As tCanvas, ByVal text As String, ByVal startX
     Dim cursorX As Long: cursorX = startX
     
     Dim stepX As Long
-    stepX = (5 * canvas.scale) + (letterSpacing * canvas.scale)
+    stepX = (5 * canvas.pixelScale) + (letterSpacing * canvas.pixelScale)
     
     For i = 1 To Len(text)
         Dim ch As String
@@ -631,7 +684,7 @@ Private Sub PaintNeighborhood(ByRef canvas As tCanvas, ByVal x As Long, ByVal y 
     Dim i As Long, j As Long
     For j = -radius To radius
         For i = -radius To radius
-            SetPixelBlock canvas, x + i * canvas.scale, y + j * canvas.scale, colorValue
+            SetPixelBlock canvas, x + i * canvas.pixelScale, y + j * canvas.pixelScale, colorValue
         Next i
     Next j
 End Sub
@@ -668,7 +721,7 @@ Private Sub PlotLinear(ByRef canvas As tCanvas, ByVal m As Double, ByVal b As Do
                        ByVal xMin As Double, ByVal xMax As Double, ByVal yMin As Double, ByVal yMax As Double, _
                        ByVal colorId As Long, ByVal thickness As Long)
     Dim stepX As Double
-    stepX = (xMax - xMin) / (canvas.widthPx / (2 * canvas.scale)) ' passo ligado à resolução
+    stepX = (xMax - xMin) / (canvas.widthPx / (2 * canvas.pixelScale)) ' passo ligado à resolução
     
     Dim x As Double
     Dim prevSet As Boolean: prevSet = False
@@ -698,7 +751,7 @@ Private Sub PlotQuadratic(ByRef canvas As tCanvas, ByVal a As Double, ByVal b2 A
                           ByVal xMin As Double, ByVal xMax As Double, ByVal yMin As Double, ByVal yMax As Double, _
                           ByVal colorId As Long, ByVal thickness As Long)
     Dim stepX As Double
-    stepX = (xMax - xMin) / (canvas.widthPx / (2 * canvas.scale)) ' passo ligado à resolução
+    stepX = (xMax - xMin) / (canvas.widthPx / (2 * canvas.pixelScale)) ' passo ligado à resolução
     
     Dim x As Double
     Dim prevSet As Boolean: prevSet = False
